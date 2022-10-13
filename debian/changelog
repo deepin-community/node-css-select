@@ -1,0 +1,144 @@
+node-css-select (4.1.3-4) unstable; urgency=medium
+
+  * Team upload
+  * Source-only upload
+
+ -- Yadd <yadd@debian.org>  Tue, 19 Oct 2021 14:22:35 +0200
+
+node-css-select (4.1.3-3) unstable; urgency=medium
+
+  * Team upload
+  * Binary upload
+
+ -- Yadd <yadd@debian.org>  Sun, 17 Oct 2021 22:03:24 +0200
+
+node-css-select (4.1.3-2) unstable; urgency=medium
+
+  * Team upload
+  * Back to unstable
+
+ -- Yadd <yadd@debian.org>  Sat, 16 Oct 2021 08:30:37 +0200
+
+node-css-select (4.1.3-1) experimental; urgency=medium
+
+  * Team upload
+
+  [ Olivier Tilloy ]
+  * Bump node-css-what build dependency.
+
+  [ Yadd ]
+  * Fix GitHub tags regex
+  * Declare compliance with policy 4.6.0
+  * New upstream version 4.1.3
+  * Require node-types-boolbase
+  * Update dependencies:
+    + node-css-what ≥ 5
+    + node-domutils ≥ 2.6
+    + node-domhandler ≥ 4.2
+
+ -- Yadd <yadd@debian.org>  Thu, 14 Oct 2021 11:26:53 +0200
+
+node-css-select (3.1.2-4) unstable; urgency=medium
+
+  * Team upload
+  * Source-only upload
+
+ -- Xavier Guimard <yadd@debian.org>  Sun, 10 Jan 2021 20:20:05 +0100
+
+node-css-select (3.1.2-3) unstable; urgency=medium
+
+  * Team upload
+  * Binary upload to workaround circular build dependency
+
+ -- Xavier Guimard <yadd@debian.org>  Sun, 10 Jan 2021 09:32:52 +0100
+
+node-css-select (3.1.2-2) unstable; urgency=medium
+
+  * Team upload
+  * Back to unstable after successful tests
+
+ -- Xavier Guimard <yadd@debian.org>  Sat, 09 Jan 2021 22:06:17 +0100
+
+node-css-select (3.1.2-1) experimental; urgency=medium
+
+  * Team upload
+  * New upstream version 3.1.2
+  * Drop patch
+  * Build with tsc
+  * Drop test (missing ts-jest)
+  * Update dependencies
+  * Update copyright
+
+ -- Xavier Guimard <yadd@debian.org>  Fri, 08 Jan 2021 15:36:00 +0100
+
+node-css-select (2.1.0+dfsg-3) unstable; urgency=medium
+
+  * Team upload
+
+  [ lintian-brush ]
+  * Set upstream metadata fields: Bug-Submit.
+  * Remove obsolete fields Contact, Name from debian/upstream/metadata
+    (already present in machine-readable debian/copyright).
+
+  [ Xavier Guimard ]
+  * Bump debhelper compatibility level to 13
+  * Declare compliance with policy 4.5.1
+  * Modernize debian/watch
+  * Use dh-sequence-nodejs
+  * Add fix for node-nth-check ≥ 2
+  * Mark test dependencies with <!nocheck>
+
+ -- Xavier Guimard <yadd@debian.org>  Wed, 16 Dec 2020 11:39:25 +0100
+
+node-css-select (2.1.0+dfsg-2) unstable; urgency=medium
+
+  * Team upload
+  * Require node-domutils ≥ 2.1.0 and enable all tests (see
+    https://github.com/fb55/css-select/issues/157)
+  * Declare compliance with policy 4.5.0
+
+ -- Xavier Guimard <yadd@debian.org>  Fri, 15 May 2020 08:43:48 +0200
+
+node-css-select (2.1.0+dfsg-1) unstable; urgency=medium
+
+  * Team upload
+  * Declare compliance with policy 4.4.1
+  * Add "Rules-Requires-Root: no"
+  * New upstream version 2.1.0+dfsg
+  * Disable 2 tests that fail with domutils ≥ 2
+
+ -- Xavier Guimard <yadd@debian.org>  Thu, 12 Dec 2019 07:12:12 +0100
+
+node-css-select (2.0.2+dfsg-1) unstable; urgency=medium
+
+  * Team upload
+
+  [ Paolo Greppi ]
+  * Update Vcs fields for migration to https://salsa.debian.org/
+
+  [ Xavier Guimard ]
+  * Bump debhelper compatibility level to 12
+  * Declare compliance with policy 4.4.0
+  * Add debian/gbp.conf
+  * Add upstream/metadata
+  * New upstream version 2.0.2
+  * Add patch to adapt code to node-css-what >=3.0.0 (fixes debci)
+  * Switch install and test to pkg-js-tools
+  * Remove useless lintian overrides
+  * Update debian/copyright
+  * Exclude W3C doc from import
+
+ -- Xavier Guimard <yadd@debian.org>  Sun, 18 Aug 2019 08:41:15 +0200
+
+node-css-select (1.3.0~rc0-1) unstable; urgency=medium
+
+  * Team upload
+  * New upstream release
+
+ -- Pirate Praveen <praveen@debian.org>  Mon, 15 Jan 2018 23:41:47 +0530
+
+node-css-select (1.2.0-1) unstable; urgency=low
+
+  * Initial release (Closes: #848353)
+
+ -- Paolo Greppi <paolo.greppi@libpf.com>  Fri, 23 Dec 2016 08:03:16 +0000

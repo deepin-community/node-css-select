@@ -1,0 +1,10 @@
+@babel/parser
+@babel/types
+css-what
+domelementtype
+jest-diff
+nth-check
+pretty-format
+@types/boolbase
+@types/istanbul-lib-coverage
+@types/node
