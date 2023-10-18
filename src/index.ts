@@ -1,10 +1,14 @@
 import * as DomUtils from "domutils";
-import { falseFunc } from "boolbase";
+import boolbase from "boolbase";
 import type {
-    Node as DomHandlerNode,
+    AnyNode as DomHandlerNode,
     Element as DomHandlerElement,
 } from "domhandler";
-import { compile as compileRaw, compileUnsafe, compileToken } from "./compile";
+import {
+    compile as compileRaw,
+    compileUnsafe,
+    compileToken,
+} from "./compile.js";
 import type {
     CompiledQuery,
     Options,
@@ -12,8 +16,8 @@ import type {
     Query,
     Adapter,
     Predicate,
-} from "./types";
-import { getNextSiblings } from "./pseudo-selectors/subselects";
+} from "./types.js";
+import { getNextSiblings } from "./pseudo-selectors/subselects.js";
 
 export type { Options };
 
@@ -115,8 +119,9 @@ function appendNextSiblings<Node, ElementNode extends Node>(
 ): Node[] {
     // Order matters because jQuery seems to check the children before the siblings
     const elems = Array.isArray(elem) ? elem.slice(0) : [elem];
+    const elemsLength = elems.length;
 
-    for (let i = 0; i < elems.length; i++) {
+    for (let i = 0; i < elemsLength; i++) {
         const nextSiblings = getNextSiblings(elems[i], adapter);
         elems.push(...nextSiblings);
     }
@@ -139,7 +144,7 @@ export const selectAll = getSelectorFunc(
         elems: Node[] | null,
         options: InternalOptions<Node, ElementNode>
     ): ElementNode[] =>
-        query === falseFunc || !elems || elems.length === 0
+        query === boolbase.falseFunc || !elems || elems.length === 0
             ? []
             : options.adapter.findAll(query, elems)
 );
@@ -159,7 +164,7 @@ export const selectOne = getSelectorFunc(
         elems: Node[] | null,
         options: InternalOptions<Node, ElementNode>
     ): ElementNode | null =>
-        query === falseFunc || !elems || elems.length === 0
+        query === boolbase.falseFunc || !elems || elems.length === 0
             ? null
             : options.adapter.findOne(query, elems)
 );
@@ -193,4 +198,5 @@ export function is<Node, ElementNode extends Node>(
 export default selectAll;
 
 // Export filters, pseudos and aliases to allow users to supply their own.
-export { filters, pseudos, aliases } from "./pseudo-selectors";
+/** @deprecated Use the `pseudos` option instead. */
+export { filters, pseudos, aliases } from "./pseudo-selectors/index.js";

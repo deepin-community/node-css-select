@@ -1,14 +1,16 @@
-import { InternalSelector } from "./types";
-import { parse, Selector } from "css-what";
-import { trueFunc, falseFunc } from "boolbase";
-import sortRules from "./sort";
-import { isTraversal } from "./procedure";
-import { compileGeneralSelector } from "./general";
+import { parse, Selector, SelectorType } from "css-what";
+import boolbase from "boolbase";
+import sortRules, { isTraversal } from "./sort.js";
+import { compileGeneralSelector } from "./general.js";
 import {
     ensureIsTag,
     PLACEHOLDER_ELEMENT,
-} from "./pseudo-selectors/subselects";
-import type { CompiledQuery, InternalOptions } from "./types";
+} from "./pseudo-selectors/subselects.js";
+import type {
+    CompiledQuery,
+    InternalOptions,
+    InternalSelector,
+} from "./types.js";
 
 /**
  * Compiles a selector to an executable function.
@@ -31,28 +33,31 @@ export function compileUnsafe<Node, ElementNode extends Node>(
     options: InternalOptions<Node, ElementNode>,
     context?: Node[] | Node
 ): CompiledQuery<ElementNode> {
-    const token =
-        typeof selector === "string" ? parse(selector, options) : selector;
+    const token = typeof selector === "string" ? parse(selector) : selector;
     return compileToken<Node, ElementNode>(token, options, context);
 }
 
 function includesScopePseudo(t: InternalSelector): boolean {
     return (
-        t.type === "pseudo" &&
+        t.type === SelectorType.Pseudo &&
         (t.name === "scope" ||
             (Array.isArray(t.data) &&
                 t.data.some((data) => data.some(includesScopePseudo))))
     );
 }
 
-const DESCENDANT_TOKEN: Selector = { type: "descendant" };
+const DESCENDANT_TOKEN: Selector = { type: SelectorType.Descendant };
 const FLEXIBLE_DESCENDANT_TOKEN: InternalSelector = {
     type: "_flexibleDescendant",
 };
-const SCOPE_TOKEN: Selector = { type: "pseudo", name: "scope", data: null };
+const SCOPE_TOKEN: Selector = {
+    type: SelectorType.Pseudo,
+    name: "scope",
+    data: null,
+};
 
 /*
- * CSS 4 Spec (Draft): 3.3.1. Absolutizing a Scope-relative Selector
+ * CSS 4 Spec (Draft): 3.4.1. Absolutizing a Relative Selector
  * http://www.w3.org/TR/selectors4/#absolutizing
  */
 function absolutize<Node, ElementNode extends Node>(
@@ -67,7 +72,11 @@ function absolutize<Node, ElementNode extends Node>(
     });
 
     for (const t of token) {
-        if (t.length > 0 && isTraversal(t[0]) && t[0].type !== "descendant") {
+        if (
+            t.length > 0 &&
+            isTraversal(t[0]) &&
+            t[0].type !== SelectorType.Descendant
+        ) {
             // Don't continue in else branch
         } else if (hasContext && !t.some(includesScopePseudo)) {
             t.unshift(DESCENDANT_TOKEN);
@@ -84,8 +93,6 @@ export function compileToken<Node, ElementNode extends Node>(
     options: InternalOptions<Node, ElementNode>,
     context?: Node[] | Node
 ): CompiledQuery<ElementNode> {
-    token = token.filter((t) => t.length > 0);
-
     token.forEach(sortRules);
 
     context = options.context ?? context;
@@ -94,7 +101,14 @@ export function compileToken<Node, ElementNode extends Node>(
     const finalContext =
         context && (Array.isArray(context) ? context : [context]);
 
-    absolutize(token, options, finalContext);
+    // Check if the selector is relative
+    if (options.relativeSelector !== false) {
+        absolutize(token, options, finalContext);
+    } else if (token.some((t) => t.length > 0 && isTraversal(t[0]))) {
+        throw new Error(
+            "Relative selectors are not allowed when the `relativeSelector` option is disabled"
+        );
+    }
 
     let shouldTestNextSiblings = false;
 
@@ -103,13 +117,19 @@ export function compileToken<Node, ElementNode extends Node>(
             if (rules.length >= 2) {
                 const [first, second] = rules;
 
-                if (first.type !== "pseudo" || first.name !== "scope") {
+                if (
+                    first.type !== SelectorType.Pseudo ||
+                    first.name !== "scope"
+                ) {
                     // Ignore
-                } else if (isArrayContext && second.type === "descendant") {
+                } else if (
+                    isArrayContext &&
+                    second.type === SelectorType.Descendant
+                ) {
                     rules[1] = FLEXIBLE_DESCENDANT_TOKEN;
                 } else if (
-                    second.type === "adjacent" ||
-                    second.type === "sibling"
+                    second.type === SelectorType.Adjacent ||
+                    second.type === SelectorType.Sibling
                 ) {
                     shouldTestNextSiblings = true;
                 }
@@ -121,7 +141,7 @@ export function compileToken<Node, ElementNode extends Node>(
                 finalContext
             );
         })
-        .reduce(reduceRules, falseFunc);
+        .reduce(reduceRules, boolbase.falseFunc);
 
     query.shouldTestNextSiblings = shouldTestNextSiblings;
 
@@ -135,8 +155,8 @@ function compileRules<Node, ElementNode extends Node>(
 ): CompiledQuery<ElementNode> {
     return rules.reduce<CompiledQuery<ElementNode>>(
         (previous, rule) =>
-            previous === falseFunc
-                ? falseFunc
+            previous === boolbase.falseFunc
+                ? boolbase.falseFunc
                 : compileGeneralSelector(
                       previous,
                       rule,
@@ -144,7 +164,7 @@ function compileRules<Node, ElementNode extends Node>(
                       context,
                       compileToken
                   ),
-        options.rootFunc ?? trueFunc
+        options.rootFunc ?? boolbase.trueFunc
     );
 }
 
@@ -152,10 +172,10 @@ function reduceRules<Node, ElementNode extends Node>(
     a: CompiledQuery<ElementNode>,
     b: CompiledQuery<ElementNode>
 ): CompiledQuery<ElementNode> {
-    if (b === falseFunc || a === trueFunc) {
+    if (b === boolbase.falseFunc || a === boolbase.trueFunc) {
         return a;
     }
-    if (a === falseFunc || b === trueFunc) {
+    if (a === boolbase.falseFunc || b === boolbase.trueFunc) {
         return b;
     }
 

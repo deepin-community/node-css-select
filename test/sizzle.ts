@@ -1,8 +1,8 @@
 import * as DomUtils from "domutils";
 import * as CSSselect from "../src";
-import type { Element } from "domhandler";
+import type { Element, AnyNode, ParentNode, ChildNode } from "domhandler";
 import { q, t, createWithFriesXML, loadDoc } from "./tools/sizzle-testinit";
-import { parseDOM } from "htmlparser2";
+import { parseDocument, parseDOM } from "htmlparser2";
 let document = loadDoc();
 
 describe("Sizzle", () => {
@@ -30,7 +30,7 @@ describe("Sizzle", () => {
         // Select all
         expect(CSSselect.selectAll("*", document).length >= 30).toBe(true);
         const all = CSSselect.selectAll("*", document);
-        const good = all.every((el) => el.nodeType !== 8);
+        const good = all.every((el: AnyNode) => el.nodeType !== 8);
         // Select all elements, no comment nodes
         expect(good).toBe(true);
         // Element Selector
@@ -128,7 +128,7 @@ describe("Sizzle", () => {
         });
         // Other document as context
         expect(CSSselect.selectAll("p:contains(bar)", iframe)).toStrictEqual([
-            DomUtils.getElementById("foo", iframe.children) as Element,
+            DomUtils.getElementById("foo", iframe.children),
         ]);
         iframe.children = [];
 
@@ -150,7 +150,7 @@ describe("Sizzle", () => {
 
         // Real use case would be using .watch in browsers with window.watch (see Issue #157)
         const elem = document.createElement("toString");
-        elem.attribs.id = "toString";
+        elem.attribs["id"] = "toString";
         DomUtils.appendChild(q("qunit-fixture")[0], elem);
         // Element name matches Object.prototype property
         t("tostring#toString", ["toString"]);
@@ -188,7 +188,7 @@ describe("Sizzle", () => {
         // Check for namespaced element
         expect(
             CSSselect.is(
-                xml.filter((t) => t.type === "tag").pop(),
+                xml.children.filter((t) => t.type === "tag").pop(),
                 "soap\\:Envelope",
                 {
                     xmlMode: true,
@@ -196,7 +196,7 @@ describe("Sizzle", () => {
             )
         ).toBe(true);
 
-        xml = parseDOM(
+        xml = parseDocument(
             "<?xml version='1.0' encoding='UTF-8'?><root><elem id='1'/></root>",
             {
                 xmlMode: true,
@@ -324,7 +324,12 @@ describe("Sizzle", () => {
 
         // ID selector with same value for a name attribute
         expect(
-            (CSSselect.selectOne("#tName1", document) as Element).attribs.id
+            (
+                CSSselect.selectOne<AnyNode, ParentNode>(
+                    "#tName1",
+                    document
+                ) as Element
+            ).attribs["id"]
         ).toBe("tName1");
         // ID selector non-existing but name attribute on an A tag
         t("#tName2", []);
@@ -334,11 +339,15 @@ describe("Sizzle", () => {
         t("#tName1 span", ["tName1-span"]);
         // Ending with ID
         expect(
-            (CSSselect.selectOne("div > div #tName1", document) as Element)
-                .attribs.id
+            (
+                CSSselect.selectOne<AnyNode, ParentNode>(
+                    "div > div #tName1",
+                    document
+                ) as Element
+            ).attribs["id"]
         ).toBe(
             (CSSselect.selectOne("#tName1-span", document)?.parent as Element)
-                .attribs.id
+                .attribs["id"]
         );
 
         parseDOM("<a id='backslash\\foo'></a>").forEach((node) =>
@@ -413,16 +422,14 @@ describe("Sizzle", () => {
             e.parent = div;
         });
         // Finding a second class.
-        expect(CSSselect.selectAll(".e", div)).toStrictEqual([
-            div.children[0] as Element,
-        ]);
+        expect(CSSselect.selectAll(".e", div)).toStrictEqual([div.children[0]]);
 
         const lastChild = div.children[div.children.length - 1] as Element;
-        lastChild.attribs.class = "e";
+        lastChild.attribs["class"] = "e";
 
         // Finding a modified class.
         expect(CSSselect.selectAll(".e", div)).toStrictEqual([
-            div.children[0] as Element,
+            div.children[0],
             lastChild,
         ]);
 
@@ -430,14 +437,14 @@ describe("Sizzle", () => {
         expect(CSSselect.is(div, ".null")).toBe(false);
         // .null does not match an element with no class
         expect(CSSselect.is(div.children[0], ".null div")).toBe(false);
-        div.attribs.class = "null";
+        div.attribs["class"] = "null";
         // .null matches element with class 'null'
         expect(CSSselect.is(div, ".null")).toBe(true);
         // Caching system respects DOM changes
         expect(CSSselect.is(div.children[0], ".null div")).toBe(true);
         // Testing class on document doesn't error
         expect(CSSselect.is(document, ".foo")).toBe(false);
-        lastChild.attribs.class += " hasOwnProperty toString";
+        lastChild.attribs["class"] += " hasOwnProperty toString";
         // Testing class on global object doesn't error
         expect(CSSselect.is(global, ".foo")).toBe(false);
         // Classes match Object.prototype properties
@@ -729,7 +736,7 @@ describe("Sizzle", () => {
         // Attribute Equals Number
         t("#qunit-fixture li[tabIndex=-1]", ["foodWithNegativeTabIndex"]);
 
-        document.getElementById("anchor2").attribs.href = "#2";
+        document.getElementById("anchor2").attribs["href"] = "#2";
         // `href` Attribute
         t("p a[href^=#]", ["anchor2"]);
         t("p a[href*=#]", ["simon1", "anchor2"]);
@@ -803,7 +810,7 @@ describe("Sizzle", () => {
         t("#ap a[hreflang!='en']", ["google", "groups", "anchor1"]);
 
         const opt = document.getElementById("option1a");
-        opt.attribs.test = "";
+        opt.attribs["test"] = "";
 
         // Attribute Is Not Equal Matches
         expect(CSSselect.is(opt, "[id*=option1][type!=checkbox]")).toBe(true);
@@ -838,7 +845,7 @@ describe("Sizzle", () => {
         t("input[name='foo[bar]']", ["hidden2"]);
 
         const input = document.getElementById("text1");
-        input.attribs.title = "Don't click me";
+        input.attribs["title"] = "Don't click me";
 
         // Quote within attribute value does not mess up tokenizer
         expect(CSSselect.is(input, 'input[title="Don\'t click me"]')).toBe(
@@ -931,7 +938,7 @@ describe("Sizzle", () => {
 
         // Finding by attribute with escaped characters.
         expect(CSSselect.selectAll("[xml\\:test]", div)).toStrictEqual([
-            div.children[0] as Element,
+            div.children[0],
         ]);
 
         const foo = document.getElementById("foo");
@@ -939,9 +946,8 @@ describe("Sizzle", () => {
         t("[constructor]", []);
         // Gecko Object.prototype property "watch" (negative)',
         t("[watch]", []);
-        // @ts-expect-error TS doesn't want us to override `constructor`
-        foo.attribs.constructor = "foo";
-        foo.attribs.watch = "bar";
+        foo.attribs["constructor"] = "foo";
+        foo.attribs["watch"] = "bar";
         // Object.prototype property "constructor"',
         t("[constructor='foo']", ["foo"]);
         // Gecko Object.prototype property "watch"',
@@ -1019,10 +1025,13 @@ describe("Sizzle", () => {
         ]);
 
         // Verify that the child position isn't being cached improperly
-        const secondChildren = CSSselect.selectAll("p:nth-child(2)", document);
+        const secondChildren: AnyNode[] = CSSselect.selectAll(
+            "p:nth-child(2)",
+            document
+        );
         const newNodes = secondChildren.map((child) => {
             const [node] = parseDOM("<div></div>");
-            DomUtils.prepend(child, node);
+            DomUtils.prepend(child as ChildNode, node);
             return node;
         });
 
@@ -1373,19 +1382,20 @@ describe("Sizzle", () => {
         t("a:contains((Link))", ["groups"]);
 
         const tmp = document.createElement("div");
-        tmp.attribs.id = "tmp_input";
+        tmp.attribs["id"] = "tmp_input";
         DomUtils.appendChild(document.body, tmp);
 
-        ["button", "submit", "reset"].forEach((type) => {
-            const els = [
-                ...parseDOM(
-                    "<input id='input_%' type='%'/><button id='button_%' type='%'>test</button>".replace(
-                        /%/g,
-                        type
-                    )
-                ),
-            ];
-            els.forEach((el) => DomUtils.appendChild(tmp, el));
+        for (const type of ["button", "submit", "reset"]) {
+            const els = parseDOM(
+                "<input id='input_%' type='%'/><button id='button_%' type='%'>test</button>".replace(
+                    /%/g,
+                    type
+                )
+            ).slice(0); // Create a copy of the array, so that `appendChild` doesn't remove the elements.
+
+            for (const el of els) {
+                DomUtils.appendChild(tmp, el);
+            }
 
             // Input Buttons :${type}
             t(`#tmp_input :${type}`, [`input_${type}`, `button_${type}`]);
@@ -1394,7 +1404,7 @@ describe("Sizzle", () => {
             expect(CSSselect.is(els[0], `:${type}`)).toBe(true);
             // Button Matches :${type}
             expect(CSSselect.is(els[1], `:${type}`)).toBe(true);
-        });
+        }
 
         DomUtils.removeElement(tmp);
 

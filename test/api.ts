@@ -1,12 +1,17 @@
 import * as CSSselect from "../src";
 import { parseDOM, parseDocument } from "htmlparser2";
-import { trueFunc, falseFunc } from "boolbase";
-import type { Element } from "domhandler";
+import boolbase from "boolbase";
+import * as DomUtils from "domutils";
+import type { AnyNode, Element } from "domhandler";
+import { SelectorType, AttributeAction } from "css-what";
+import type { Adapter } from "../src/types.js";
 
 const [dom] = parseDOM("<div id=foo><p>foo</p></div>") as Element[];
 const [xmlDom] = parseDOM("<DiV id=foo><P>foo</P></DiV>", {
     xmlMode: true,
 }) as Element[];
+
+const notYet = "not yet supported by css-select";
 
 describe("API", () => {
     describe("removes duplicates", () => {
@@ -27,9 +32,9 @@ describe("API", () => {
 
     describe("can be queried with more than a selector", () => {
         it("function in `is`", () => {
-            expect(CSSselect.is(dom, (elem) => elem.attribs.id === "foo")).toBe(
-                true
-            );
+            expect(
+                CSSselect.is(dom, (elem) => elem.attribs["id"] === "foo")
+            ).toBe(true);
         });
 
         it("parsed selector in `is`", () => {
@@ -37,8 +42,8 @@ describe("API", () => {
                 CSSselect.is(dom, [
                     [
                         {
-                            type: "attribute",
-                            action: "equals",
+                            type: SelectorType.Attribute,
+                            action: AttributeAction.Equals,
                             ignoreCase: false,
                             name: "id",
                             namespace: null,
@@ -66,18 +71,70 @@ describe("API", () => {
             ) as Element[];
             const a = CSSselect.selectAll(".foo:has(+.bar)", dom);
             expect(a).toHaveLength(1);
-            expect(a[0]).toStrictEqual(dom.children[0] as Element);
+            expect(a[0]).toStrictEqual(dom.children[0]);
         });
 
         it("should accept document root nodes", () => {
             const doc = parseDocument("<div id=foo><p>foo</p></div>");
             expect(CSSselect.selectAll(":contains(foo)", doc)).toHaveLength(2);
         });
+
+        it("should support scoped selections relative to the root (#709)", () => {
+            const doc = parseDocument(`
+                <div class="parent">
+                    <div class="one"><p class="p1"></p></div>
+                    <div class="two"><p class="p2"></p></div>
+                    <div class="three"><p class="p3"></p></div>
+                </div>`);
+
+            const two = CSSselect.selectOne(".two", doc);
+            expect(
+                CSSselect.selectOne(".parent .two .p2", two, {
+                    relativeSelector: false,
+                })
+            ).toMatchObject({
+                attribs: { class: "p2" },
+            });
+            expect(
+                CSSselect.selectOne(".parent .two .p3", two, {
+                    relativeSelector: false,
+                })
+            ).toBeNull();
+        });
     });
 
     describe("errors", () => {
         it("should throw with a pseudo-element", () => {
             expect(() => CSSselect.compile("::after")).toThrow("not supported");
+        });
+
+        it("should throw an error if encountering a traversal-first selector with relative selectors disabled", () =>
+            expect(() =>
+                CSSselect.compile("> p", { relativeSelector: false })
+            ).toThrow(
+                "Relative selectors are not allowed when the `relativeSelector` option is disabled"
+            ));
+
+        it("should throw with a column combinator", () => {
+            expect(() => CSSselect.compile("foo || bar")).toThrow(notYet);
+        });
+
+        it("should throw with attribute namespace", () => {
+            expect(() => CSSselect.compile("[foo|bar]")).toThrow(notYet);
+            expect(() => CSSselect.compile("[|bar]")).not.toThrow();
+            expect(() => CSSselect.compile("[*|bar]")).toThrow(notYet);
+        });
+
+        it("should throw with tag namespace", () => {
+            expect(() => CSSselect.compile("foo|bar")).toThrow(notYet);
+            expect(() => CSSselect.compile("|bar")).toThrow(notYet);
+            expect(() => CSSselect.compile("*|bar")).toThrow(notYet);
+        });
+
+        it("should throw with universal selector", () => {
+            expect(() => CSSselect.compile("foo|*")).toThrow(notYet);
+            expect(() => CSSselect.compile("|*")).toThrow(notYet);
+            expect(() => CSSselect.compile("*|*")).not.toThrow();
         });
 
         it("should throw if parameter is supplied for pseudo", () => {
@@ -91,44 +148,85 @@ describe("API", () => {
         });
 
         it("should throw if no parameter is supplied for pseudo", () => {
-            CSSselect.pseudos.foovalue = (elem, { adapter }, subselect) =>
+            CSSselect.pseudos["foovalue"] = (elem, { adapter }, subselect) =>
                 adapter.getAttributeValue(elem, "foo") === subselect;
 
             expect(() => CSSselect.compile(":foovalue")).toThrow(
                 "requires an argument"
             );
 
-            delete CSSselect.pseudos.foovalue;
+            delete CSSselect.pseudos["foovalue"];
         });
+
+        it("should throw if parameter is supplied for user-provided pseudo", () =>
+            expect(() =>
+                CSSselect.compile(":foovalue(boo)", {
+                    pseudos: { foovalue: "tag" },
+                })
+            ).toThrow("doesn't have any arguments"));
+
+        it("should throw if no parameter is supplied for user-provided pseudo", () =>
+            expect(() =>
+                CSSselect.compile(":foovalue", {
+                    pseudos: {
+                        foovalue(_el, data) {
+                            return data != null;
+                        },
+                    },
+                })
+            ).toThrow("requires an argument"));
     });
 
     describe("unsatisfiable and universally valid selectors", () => {
         it("in :not", () => {
-            let func = CSSselect._compileUnsafe(":not(*)");
-            expect(func).toBe(falseFunc);
-            func = CSSselect._compileUnsafe(":not(:nth-child(-1n-1))");
-            expect(func).toBe(trueFunc);
-            func = CSSselect._compileUnsafe(":not(:not(:not(*)))");
-            expect(func).toBe(falseFunc);
+            expect(CSSselect._compileUnsafe(":not(*)")).toBe(
+                boolbase.falseFunc
+            );
+            expect(CSSselect._compileUnsafe(":not(:nth-child(-1n-1))")).toBe(
+                boolbase.trueFunc
+            );
+            expect(CSSselect._compileUnsafe(":not(:not(:not(*)))")).toBe(
+                boolbase.falseFunc
+            );
         });
 
         it("in :has", () => {
             const matches = CSSselect.selectAll(":has(*)", [dom]);
             expect(matches).toHaveLength(1);
             expect(matches[0]).toBe(dom);
-            const func = CSSselect._compileUnsafe(":has(:nth-child(-1n-1))");
-            expect(func).toBe(falseFunc);
+
+            expect(CSSselect._compileUnsafe(":has(:nth-child(-1n-1))")).toBe(
+                boolbase.falseFunc
+            );
+
+            const matches2 = CSSselect.selectAll(
+                "p:has(+ *)",
+                parseDOM("<p><p>")
+            );
+            expect(matches2).toHaveLength(1);
+            expect(matches2[0]).toHaveProperty("tagName", "p");
         });
 
-        it("should skip unsatisfiable", () => {
-            const func = CSSselect._compileUnsafe("* :not(*) foo");
-            expect(func).toBe(falseFunc);
+        it("in :is", () => {
+            expect(CSSselect._compileUnsafe(":is(*)")).toBe(boolbase.trueFunc);
+            expect(CSSselect._compileUnsafe(":is(:nth-child(-1n-1))")).toBe(
+                boolbase.falseFunc
+            );
+            expect(CSSselect._compileUnsafe(":is(:not(:not(*)))")).toBe(
+                boolbase.trueFunc
+            );
+            expect(CSSselect._compileUnsafe(":is(*, :scope)")).toBe(
+                boolbase.trueFunc
+            );
         });
 
-        it("should promote universally valid", () => {
-            const func = CSSselect._compileUnsafe("*, foo");
-            expect(func).toBe(trueFunc);
-        });
+        it("should skip unsatisfiable", () =>
+            expect(CSSselect._compileUnsafe("* :not(*) foo")).toBe(
+                boolbase.falseFunc
+            ));
+
+        it("should promote universally valid", () =>
+            expect(CSSselect._compileUnsafe("*, foo")).toBe(boolbase.trueFunc));
     });
 
     describe(":matches", () => {
@@ -184,6 +282,19 @@ describe("API", () => {
             expect(matches).toHaveLength(1);
             expect(matches[0]).toBe(dom);
         });
+
+        it("should support alias :where", () => {
+            let matches = CSSselect.selectAll(":where(p, div)", [dom]);
+            expect(matches).toHaveLength(2);
+            matches = CSSselect.selectAll(":where(div, :not(div))", [dom]);
+            expect(matches).toHaveLength(2);
+            matches = CSSselect.selectAll(
+                ":where(boo, baa, tag, div, foo, bar, baz)",
+                [dom]
+            );
+            expect(matches).toHaveLength(1);
+            expect(matches[0]).toBe(dom);
+        });
     });
 
     describe("parent selector (<)", () => {
@@ -204,7 +315,7 @@ describe("API", () => {
             expect(CSSselect.selectOne(":contains(foo)", [dom])).toBe(dom);
         });
         it("should take shortcuts when applicable", () => {
-            let match = CSSselect.selectOne(falseFunc, {
+            let match = CSSselect.selectOne(boolbase.falseFunc, {
                 get length() {
                     throw new Error("Did not take shortcut");
                 },
@@ -242,6 +353,14 @@ describe("API", () => {
             ).toStrictEqual(p);
         });
 
+        it("should not crash when siblings repeat", () => {
+            const dom = parseDOM(`<div></div>`.repeat(51)) as Element[];
+
+            expect(
+                CSSselect.selectAll("+div", dom, { context: dom })
+            ).toHaveLength(50);
+        });
+
         it("should cache results by default", () => {
             const [dom] = parseDOM(
                 '<div id="foo"><p>bar</p></div>'
@@ -249,7 +368,7 @@ describe("API", () => {
             const query = CSSselect.compile("#bar p");
 
             expect(CSSselect.selectAll(query, [dom])).toHaveLength(0);
-            dom.attribs.id = "bar";
+            dom.attribs["id"] = "bar";
             // The query should be cached and the changed attribute should be ignored.
             expect(CSSselect.selectAll(query, [dom])).toHaveLength(0);
         });
@@ -261,9 +380,53 @@ describe("API", () => {
             const query = CSSselect.compile("#bar p", { cacheResults: false });
 
             expect(CSSselect.selectAll(query, [dom])).toHaveLength(0);
-            dom.attribs.id = "bar";
+            dom.attribs["id"] = "bar";
             // The query should not be cached, the changed attribute should be picked up.
             expect(CSSselect.selectAll(query, [dom])).toHaveLength(1);
+        });
+
+        it("should pass options to sub-selectors", () => {
+            expect(
+                CSSselect.selectAll("div:is(DiV#FOO):not([ID]):foo", [dom], {
+                    xmlMode: true,
+                    lowerCaseTags: true,
+                    quirksMode: true,
+                    pseudos: { foo: "#fOO" },
+                })
+            ).toHaveLength(1);
+        });
+    });
+
+    describe("optional adapter methods", () => {
+        it("should support prevElementSibling", () => {
+            const adapter: Adapter<AnyNode, Element> = { ...DomUtils };
+            delete adapter.prevElementSibling;
+
+            const dom = parseDOM(
+                `${"<p>foo".repeat(10)}<div>bar</div>`
+            ) as Element[];
+
+            expect(
+                CSSselect.selectAll("p + div", dom, { adapter })
+            ).toStrictEqual(CSSselect.selectAll("p + div", dom));
+        });
+
+        it("should support isHovered", () => {
+            const dom = parseDOM(`${"<p>foo".repeat(10)}`) as Element[];
+
+            const adapter = {
+                ...DomUtils,
+                isHovered: (el: Element) => el === dom[dom.length - 1],
+            };
+
+            const selection = CSSselect.selectAll("p:hover", dom, { adapter });
+            expect(selection).toHaveLength(1);
+            expect(selection[0]).toBe(dom[dom.length - 1]);
+        });
+
+        it("should not match any elements if `isHovered` is not defined", () => {
+            const dom = parseDOM(`${"<p>foo".repeat(10)}`);
+            expect(CSSselect.selectAll("p:hover", dom)).toHaveLength(0);
         });
     });
 });

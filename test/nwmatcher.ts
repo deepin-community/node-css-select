@@ -19,9 +19,7 @@ function getByIds(...args: string[]): Element[] {
 }
 
 function getById(id: string): Element {
-    const elem = DomUtils.getElementById(id, document);
-    if (!elem) throw new Error(`Did not find element with ID ${id}`);
-    return elem;
+    return document.getElementById(id);
 }
 
 // NWMatcher methods
@@ -29,6 +27,11 @@ const select = (query: string, doc: Node[] | Node = document): Node[] =>
     CSSselect.selectAll(query, doc);
 
 describe("NWMatcher", () => {
+    // Test whether our helper above throws
+    it("should throw when getting an element by an invalid ID", () => {
+        expect(() => getById("foo")).toThrow();
+    });
+
     describe("Basic Selectors", () => {
         it("*", () => {
             // Universal selector
@@ -140,12 +143,12 @@ describe("NWMatcher", () => {
             );
         });
 
-        it.skip("E[foo] with namespaced attributes", () => {
-            expect(select("[xml:lang]")).toStrictEqual([
+        it("E[foo] with namespaced attributes", () => {
+            expect(select("[xml\\:lang]")).toStrictEqual([
                 document.documentElement,
                 getById("item_3"),
             ]);
-            expect(select("*[xml:lang]")).toStrictEqual([
+            expect(select("*[xml\\:lang]")).toStrictEqual([
                 document.documentElement,
                 getById("item_3"),
             ]);
@@ -575,10 +578,10 @@ describe("NWMatcher", () => {
             );
         });
 
-        it.skip("Multiple Selectors with lang", () => {
+        it("Multiple Selectors with lang", () => {
             // The next two assertions should return document-ordered lists of matching elements --Diego Perini
             expect(
-                select('#list, .first,*[xml:lang="es-us"] , #troubleForm')
+                select('#list, .first,*[xml\\:lang="es-us"] , #troubleForm')
             ).toStrictEqual(
                 getByIds(
                     "p",
@@ -590,7 +593,7 @@ describe("NWMatcher", () => {
                 )
             );
             expect(
-                select('#list, .first, *[xml:lang="es-us"], #troubleForm')
+                select('#list, .first, *[xml\\:lang="es-us"], #troubleForm')
             ).toStrictEqual(
                 getByIds(
                     "p",
