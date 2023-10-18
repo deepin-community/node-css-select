@@ -1,0 +1,16 @@
+Description: fix jest configuration
+Author: Yadd <yadd@debian.org>
+Forwarded: not-needed
+Last-Update: 2022-06-25
+
+--- a/package.json
++++ b/package.json
+@@ -72,7 +72,7 @@
+         "testEnvironment": "node",
+         "coverageProvider": "v8",
+         "moduleNameMapper": {
+-            "^(.*)\\.js$": "$1"
++            "^(\\.?\\.\\/.*)\\.js$": "$1"
+         },
+         "testMatch": [
+             "<rootDir>/test/*.ts"

@@ -2,9 +2,13 @@
 @babel/types
 css-what
 domelementtype
-jest-diff
+domhandler
+domutils
+dom-serializer
+htmlparser2	test
 nth-check
 pretty-format
+ts-jest		test
 @types/boolbase
-@types/istanbul-lib-coverage
+@types/jest	test
 @types/node

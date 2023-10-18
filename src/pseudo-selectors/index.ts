@@ -12,13 +12,12 @@
  * of `next()` and your code.
  * Pseudos should be used to implement simple checks.
  */
-import { trueFunc, falseFunc } from "boolbase";
-import type { CompiledQuery, InternalOptions, CompileToken } from "../types";
+import type { CompiledQuery, InternalOptions, CompileToken } from "../types.js";
 import { parse, PseudoSelector } from "css-what";
-import { filters } from "./filters";
-import { pseudos, verifyPseudoArgs } from "./pseudos";
-import { aliases } from "./aliases";
-import { subselects } from "./subselects";
+import { filters } from "./filters.js";
+import { pseudos, verifyPseudoArgs } from "./pseudos.js";
+import { aliases } from "./aliases.js";
+import { subselects } from "./subselects.js";
 
 export { filters, pseudos, aliases };
 
@@ -32,29 +31,44 @@ export function compilePseudoSelector<Node, ElementNode extends Node>(
     const { name, data } = selector;
 
     if (Array.isArray(data)) {
+        if (!(name in subselects)) {
+            throw new Error(`Unknown pseudo-class :${name}(${data})`);
+        }
+
         return subselects[name](next, data, options, context, compileToken);
     }
-    if (name in aliases) {
+
+    const userPseudo = options.pseudos?.[name];
+
+    const stringPseudo =
+        typeof userPseudo === "string" ? userPseudo : aliases[name];
+
+    if (typeof stringPseudo === "string") {
         if (data != null) {
             throw new Error(`Pseudo ${name} doesn't have any arguments`);
         }
 
         // The alias has to be parsed here, to make sure options are respected.
-        const alias = parse(aliases[name], options);
-        return subselects.is(next, alias, options, context, compileToken);
+        const alias = parse(stringPseudo);
+        return subselects["is"](next, alias, options, context, compileToken);
     }
+
+    if (typeof userPseudo === "function") {
+        verifyPseudoArgs(userPseudo, name, data, 1);
+
+        return (elem) => userPseudo(elem, data) && next(elem);
+    }
+
     if (name in filters) {
         return filters[name](next, data as string, options, context);
     }
+
     if (name in pseudos) {
         const pseudo = pseudos[name];
-        verifyPseudoArgs(pseudo, name, data);
+        verifyPseudoArgs(pseudo, name, data, 2);
 
-        return pseudo === falseFunc
-            ? falseFunc
-            : next === trueFunc
-            ? (elem) => pseudo(elem, options, data)
-            : (elem) => pseudo(elem, options, data) && next(elem);
+        return (elem) => pseudo(elem, options, data) && next(elem);
     }
-    throw new Error(`unmatched pseudo-class :${name}`);
+
+    throw new Error(`Unknown pseudo-class :${name}`);
 }
